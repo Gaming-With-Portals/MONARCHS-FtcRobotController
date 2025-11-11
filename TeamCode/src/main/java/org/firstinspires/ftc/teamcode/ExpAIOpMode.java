@@ -29,59 +29,43 @@ package org.firstinspires.ftc.teamcode;/* Copyright (c) 2021 FIRST. All rights r
 
 
 
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.util.Range;
+
 import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
 import java.util.List;
-/*
- * This file contains an example of a Linear "OpMode".
- * An OpMode is a 'program' that runs in either the autonomous or the teleop period of an FTC match.
- * The names of OpModes appear on the menu of the FTC Driver Station.
- * When a selection is made from the menu, the corresponding OpMode is executed.
- *
- * This particular OpMode illustrates driving a 4-motor Omni-Directional (or Holonomic) robot.
- * This code will work with either a Mecanum-Drive or an X-Drive train.
- * Both of these drives are illustrated at https://gm0.org/en/latest/docs/robot-design/drivetrains/holonomic.html
- * Note that a Mecanum drive must display an X roller-pattern when viewed from above.
- *
- * Also note that it is critical to set the correct rotation direction for each motor.  See details below.
- *
- * Holonomic drives provide the ability for the robot to move in three axes (directions) simultaneously.
- * Each motion axis is controlled by one Joystick axis.
- *
- * 1) Axial:    Driving forward and backward               Left-joystick Forward/Backward
- * 2) Lateral:  Strafing right and left                     Left-joystick Right and Left
- * 3) Yaw:      Rotating Clockwise and counter clockwise    Right-joystick Right and Left
- *
- * This code is written assuming that the right-side motors need to be reversed for the robot to drive forward.
- * When you first test your robot, if it moves backward when you push the left stick forward, then you must flip
- * the direction of all 4 motors (see code below).
- *
- * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
- * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list
- */
 
-@TeleOp(name="Declan Is An: TeleOp Mode", group="Linear OpMode")
-public class DeclanIsAnOpMode extends LinearOpMode {
+
+@Autonomous(name="AutoBots: Bleeding Edge Auto", group="Linear OpMode")
+public class ExpAIOpMode extends LinearOpMode {
     // Declare OpMode members for each of the 4 motors.
     private ElapsedTime runtime = new ElapsedTime();
     private static final boolean USE_WEBCAM = true;
 
+    double state_machine_start_time = -1.0f;
+    double state_machine_run_time = 2.0f;
+    boolean state_machine_busy = false;
+    int state_id = -1;
+    int state_index = 0;
+
     boolean slowMode = false;
     boolean lastBumperState = false;
 
+    boolean readyToMove = false;
 
-    private boolean hasFoundMotifTag = false;
-    
-    private String motifPattern = "UNKNOWN";
     private AprilTagProcessor aprilTag; // april tag processer deal thing, thanks ftc
     private VisionPortal visionPortal; // literally just a camera streamer
 
@@ -90,6 +74,7 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     private DcMotor frontRightDrive = null;
     private DcMotor backRightDrive = null;
 
+    boolean foundAprilTag = false;
 
     @Override
     public void runOpMode() {
@@ -106,32 +91,78 @@ public class DeclanIsAnOpMode extends LinearOpMode {
         backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
 
-        //initAprilTag();
-
         // Wait for the game to start (driver presses START)
         telemetry.addData("Status", "Initialized");
         telemetry.update();
+
+        initAprilTag();
 
         waitForStart();
         runtime.reset();
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
+            if (readyToMove){
+                if (foundAprilTag){ // aligned to front
+                    if (!state_machine_busy){ // execute state machine command
+                        state_id = 0;
+                        frontLeftDrive.setPower(0.25);
+                        frontRightDrive.setPower(0.25);
+                        backLeftDrive.setPower(0.25);
+                        backRightDrive.setPower(0.25);
+                        state_machine_start_time = runtime.seconds();
+                        state_machine_busy = true;
+                    }
+                }else{
+                    if (!state_machine_busy) {
+                        state_id = 1;
 
-            //telemetry.addData("Motif", motifPattern);
+                        frontLeftDrive.setPower(0.3);
+                        frontRightDrive.setPower(0.3);
+                        backLeftDrive.setPower(0.3);
+                        backRightDrive.setPower(0.3);
+                        state_machine_start_time = runtime.seconds();
+                        state_machine_busy = true;
+                    }
+                }
+                if (state_machine_busy){
+                    if (runtime.seconds()-state_machine_start_time>state_machine_run_time){
+                        if (state_id == 0){
+                            // if no april tag
+                            state_machine_busy = false;
+                            frontLeftDrive.setPower(0);
+                            frontRightDrive.setPower(0);
+                            backLeftDrive.setPower(0);
+                            backRightDrive.setPower(0);
+                            return;
+                        }else if (state_id == 1){
+                            state_id = 0;
+                            // start strafe
+                            frontLeftDrive.setPower(0.3);
+                            frontRightDrive.setPower(-0.3);
+                            backLeftDrive.setPower(-0.3);
+                            backRightDrive.setPower(0.3);
+                            state_machine_start_time = runtime.seconds();
+                            state_machine_busy = true;
 
-            TeleOp();
+                        };
 
-            /*if (hasFoundMotifTag == false){
-                telemetry.addData("AI Status", "Attempting to find motif... Elapsed: " + runtime.toString());
+                        //break;
+                    }
+                }
+            }
+
+
+            if (!foundAprilTag){
                 visionPortal.resumeStreaming();
-                attemptFetchMotif();
+                telemetryAprilTag();
+                telemetry.addData("Status", "Awaiting april tag location...");
+                telemetry.update();
+            }
+            if (runtime.seconds() > 5){
+                readyToMove = true;
+            }
 
-            }else{
-                visionPortal.stopStreaming();
-            }*/
-
-            telemetry.update();
 
         }
 
@@ -184,22 +215,6 @@ public class DeclanIsAnOpMode extends LinearOpMode {
 
     }
 
-
-    private void attemptFetchMotif(){
-        List<AprilTagDetection> currentDetections = aprilTag.getDetections();
-        for (AprilTagDetection detection : currentDetections) {
-            if (detection.metadata != null) {
-                if (detection.metadata.name.startsWith("Obelisk")){
-                    telemetry.addLine("Obelisk tag detected!");
-                    motifPattern = detection.metadata.name.split("_")[1];
-                    hasFoundMotifTag = true;
-                }
-            }else{
-                telemetry.addData("MOTIF ERROR", "Unable to read april tag! Clean lense!");
-            }
-        }
-    }
-
     private void telemetryAprilTag() {
 
         List<AprilTagDetection> currentDetections = aprilTag.getDetections();
@@ -216,6 +231,7 @@ public class DeclanIsAnOpMode extends LinearOpMode {
                 telemetry.addLine(String.format("\n==== (ID %d) Unknown", detection.id));
                 telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", detection.center.x, detection.center.y));
             }
+            foundAprilTag = true;
         }   // end for() loop
 
         // Add "key" information to telemetry
@@ -224,6 +240,7 @@ public class DeclanIsAnOpMode extends LinearOpMode {
         telemetry.addLine("RBE = Range, Bearing & Elevation");
 
     }
+
     private void initAprilTag() {
 
         // Create the AprilTag processor the easy way.
@@ -238,6 +255,8 @@ public class DeclanIsAnOpMode extends LinearOpMode {
                     BuiltinCameraDirection.BACK, aprilTag);
         }
 
-    } }
+    }
 
 
+
+}
