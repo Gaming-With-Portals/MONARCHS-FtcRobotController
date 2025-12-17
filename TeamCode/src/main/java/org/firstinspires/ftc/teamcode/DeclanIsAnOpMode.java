@@ -78,6 +78,8 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     boolean slowMode = false;
     boolean lastBumperState = false;
 
+    boolean intakeActive = false;
+    boolean lastIntakeState = false;
 
     private boolean hasFoundMotifTag = false;
     
@@ -89,7 +91,8 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     private DcMotor backLeftDrive = null;
     private DcMotor frontRightDrive = null;
     private DcMotor backRightDrive = null;
-
+    private DcMotor launch_motor = null;
+    private DcMotor intake_motor = null;
 
     @Override
     public void runOpMode() {
@@ -105,6 +108,11 @@ public class DeclanIsAnOpMode extends LinearOpMode {
         frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
         backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
+        intake_motor = hardwareMap.get(DcMotor.class, "intake");
+        launch_motor = hardwareMap.get(DcMotor.class, "outake");
+
+        launch_motor.setDirection(DcMotor.Direction.FORWARD);
+        intake_motor.setDirection(DcMotor.Direction.FORWARD);
 
         //initAprilTag();
 
@@ -148,15 +156,27 @@ public class DeclanIsAnOpMode extends LinearOpMode {
 
 
         boolean bumperPressed = gamepad1.left_stick_button;
-
+        boolean intakePressed = gamepad1.a;
         if (bumperPressed && !lastBumperState) {
             slowMode = !slowMode;
         }
 
+        if (intakePressed && !lastIntakeState){
+            intakeActive = !intakeActive;
+
+
+        }
+
+        intake_motor.setPower(gamepad1.right_trigger);
+        launch_motor.setPower(gamepad1.left_trigger);
+
         lastBumperState = bumperPressed;
+        lastIntakeState = intakePressed;
 
         // Apply speed multiplier
         double speedMultiplier = slowMode ? 0.25 : 1.0;
+
+        intake_motor.setPower(intakeActive ? 1.0 : 0.0);
 
         double frontLeftPower  = (axial + lateral + yaw) * speedMultiplier;
         double frontRightPower = (axial - lateral - yaw) * speedMultiplier;

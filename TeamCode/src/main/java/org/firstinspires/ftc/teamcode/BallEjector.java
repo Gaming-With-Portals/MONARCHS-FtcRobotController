@@ -49,8 +49,8 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import java.util.List;
 
 
-@Autonomous(name="AutoBots: Bleeding Edge Auto", group="Linear OpMode")
-public class ExpAIOpMode extends LinearOpMode {
+@Autonomous(name="Ball Ejector (TEST)", group="Linear OpMode")
+public class BallEjector extends LinearOpMode {
     // Declare OpMode members for each of the 4 motors.
     private ElapsedTime runtime = new ElapsedTime();
     private static final boolean USE_WEBCAM = true;
@@ -58,14 +58,13 @@ public class ExpAIOpMode extends LinearOpMode {
     double state_machine_start_time = -1.0f;
     double state_machine_run_time = 2.0f;
     boolean state_machine_busy = false;
-    int state_id = -1;
-    int state_index = 0;
-
     boolean slowMode = false;
     boolean lastBumperState = false;
 
-    boolean readyToMove = false;
 
+    private boolean hasFoundMotifTag = false;
+
+    private String motifPattern = "UNKNOWN";
     private AprilTagProcessor aprilTag; // april tag processer deal thing, thanks ftc
     private VisionPortal visionPortal; // literally just a camera streamer
 
@@ -73,8 +72,8 @@ public class ExpAIOpMode extends LinearOpMode {
     private DcMotor backLeftDrive = null;
     private DcMotor frontRightDrive = null;
     private DcMotor backRightDrive = null;
+    private DcMotor launch_motor = null;
 
-    boolean foundAprilTag = false;
 
     @Override
     public void runOpMode() {
@@ -85,6 +84,9 @@ public class ExpAIOpMode extends LinearOpMode {
         frontRightDrive = hardwareMap.get(DcMotor.class, "front_right");
         backRightDrive = hardwareMap.get(DcMotor.class, "back_right");
 
+        launch_motor = hardwareMap.get(DcMotor.class, "outake");
+
+        launch_motor.setDirection(DcMotor.Direction.FORWARD);
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
@@ -95,74 +97,16 @@ public class ExpAIOpMode extends LinearOpMode {
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
-        initAprilTag();
+        //initAprilTag();
 
         waitForStart();
         runtime.reset();
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
-            if (readyToMove){
-                if (foundAprilTag){ // aligned to front
-                    if (!state_machine_busy){ // execute state machine command
-                        state_id = 0;
-                        frontLeftDrive.setPower(0.25);
-                        frontRightDrive.setPower(0.25);
-                        backLeftDrive.setPower(0.25);
-                        backRightDrive.setPower(0.25);
-                        state_machine_start_time = runtime.seconds();
-                        state_machine_busy = true;
-                    }
-                }else{
-                    if (!state_machine_busy) {
-                        state_id = 1;
+            launch_motor.setPower(1);
 
-                        frontLeftDrive.setPower(0.3);
-                        frontRightDrive.setPower(0.3);
-                        backLeftDrive.setPower(0.3);
-                        backRightDrive.setPower(0.3);
-                        state_machine_start_time = runtime.seconds();
-                        state_machine_busy = true;
-                    }
-                }
-                if (state_machine_busy){
-                    if (runtime.seconds()-state_machine_start_time>state_machine_run_time){
-                        if (state_id == 0){
-                            // if no april tag
-                            state_machine_busy = false;
-                            frontLeftDrive.setPower(0);
-                            frontRightDrive.setPower(0);
-                            backLeftDrive.setPower(0);
-                            backRightDrive.setPower(0);
-                            return;
-                        }else if (state_id == 1){
-                            state_id = 0;
-                            // start strafe
-                            frontLeftDrive.setPower(0.3);
-                            frontRightDrive.setPower(-0.3);
-                            backLeftDrive.setPower(-0.3);
-                            backRightDrive.setPower(0.3);
-                            state_machine_start_time = runtime.seconds();
-                            state_machine_busy = true;
-
-                        };
-
-                        //break;
-                    }
-                }
-            }
-
-
-            if (!foundAprilTag){
-                visionPortal.resumeStreaming();
-                telemetryAprilTag();
-                telemetry.addData("Status", "Awaiting april tag location...");
-                telemetry.update();
-            }
-            if (runtime.seconds() > 5){
-                readyToMove = true;
-            }
-
+            telemetry.update();
 
         }
 
@@ -231,7 +175,6 @@ public class ExpAIOpMode extends LinearOpMode {
                 telemetry.addLine(String.format("\n==== (ID %d) Unknown", detection.id));
                 telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", detection.center.x, detection.center.y));
             }
-            foundAprilTag = true;
         }   // end for() loop
 
         // Add "key" information to telemetry
