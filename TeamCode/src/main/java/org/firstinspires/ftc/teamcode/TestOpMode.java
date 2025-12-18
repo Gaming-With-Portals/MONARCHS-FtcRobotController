@@ -68,7 +68,7 @@ import java.util.List;
  * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
  * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list
  */
-
+@Disabled()
 @TeleOp(name="Me When I Lock In (TEST)", group="Linear OpMode")
 public class TestOpMode extends LinearOpMode {
     // Declare OpMode members for each of the 4 motors.
@@ -130,10 +130,7 @@ public class TestOpMode extends LinearOpMode {
         waitForStart();
         runtime.reset();
 
-        frontLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        frontRightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backRightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {

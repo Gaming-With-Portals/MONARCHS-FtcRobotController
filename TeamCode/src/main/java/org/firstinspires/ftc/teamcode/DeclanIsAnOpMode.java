@@ -39,7 +39,7 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
-
+import com.qualcomm.robotcore.hardware.LED;
 import java.util.List;
 /*
  * This file contains an example of a Linear "OpMode".
@@ -74,7 +74,7 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     // Declare OpMode members for each of the 4 motors.
     private ElapsedTime runtime = new ElapsedTime();
     private static final boolean USE_WEBCAM = true;
-
+    LED status_led;
     boolean slowMode = false;
     boolean lastBumperState = false;
 
@@ -93,11 +93,13 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     private DcMotor backRightDrive = null;
     private DcMotor launch_motor = null;
     private DcMotor intake_motor = null;
+    private boolean lastOutakeState = false;
+    private boolean outakeActive = false;
 
     @Override
     public void runOpMode() {
 
-
+        status_led = hardwareMap.get(LED.class, "status_led");
         frontLeftDrive = hardwareMap.get(DcMotor.class, "front_left");
         backLeftDrive = hardwareMap.get(DcMotor.class, "back_left");
         frontRightDrive = hardwareMap.get(DcMotor.class, "front_right");
@@ -123,6 +125,12 @@ public class DeclanIsAnOpMode extends LinearOpMode {
         waitForStart();
         runtime.reset();
 
+
+        frontLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontRightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backRightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        status_led.off();
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
 
@@ -157,8 +165,10 @@ public class DeclanIsAnOpMode extends LinearOpMode {
 
         boolean bumperPressed = gamepad1.left_stick_button;
         boolean intakePressed = gamepad1.a;
+        boolean outakePressed = gamepad1.dpad_up;
         if (bumperPressed && !lastBumperState) {
             slowMode = !slowMode;
+            status_led.enable(slowMode);
         }
 
         if (intakePressed && !lastIntakeState){
@@ -167,16 +177,28 @@ public class DeclanIsAnOpMode extends LinearOpMode {
 
         }
 
+
+        if (outakePressed && !lastOutakeState){
+            outakeActive = !outakeActive;
+
+
+        }
+
         intake_motor.setPower(gamepad1.right_trigger);
-        launch_motor.setPower(gamepad1.left_trigger);
+        if (!outakeActive){
+            launch_motor.setPower(gamepad1.left_trigger);
+        }
+
 
         lastBumperState = bumperPressed;
         lastIntakeState = intakePressed;
+        lastOutakeState = outakePressed;
 
         // Apply speed multiplier
         double speedMultiplier = slowMode ? 0.25 : 1.0;
 
         intake_motor.setPower(intakeActive ? 1.0 : 0.0);
+        launch_motor.setPower(outakeActive ? 1.0 : 0.0);
 
         double frontLeftPower  = (axial + lateral + yaw) * speedMultiplier;
         double frontRightPower = (axial - lateral - yaw) * speedMultiplier;
