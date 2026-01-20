@@ -29,12 +29,14 @@ package org.firstinspires.ftc.teamcode;/* Copyright (c) 2021 FIRST. All rights r
 
 
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -50,6 +52,7 @@ import java.util.List;
 
 
 @Autonomous(name="Ball Ejector (TEST)", group="Linear OpMode")
+@Configurable // Panels
 public class BallEjector extends LinearOpMode {
     // Declare OpMode members for each of the 4 motors.
     private ElapsedTime runtime = new ElapsedTime();
@@ -61,6 +64,7 @@ public class BallEjector extends LinearOpMode {
     boolean slowMode = false;
     boolean lastBumperState = false;
 
+    public static double target_servo_angle = 10;
 
     private boolean hasFoundMotifTag = false;
 
@@ -74,6 +78,8 @@ public class BallEjector extends LinearOpMode {
     private DcMotor backRightDrive = null;
     private DcMotor launch_motor = null;
 
+    private Servo stage_2_servo = null;
+
 
     @Override
     public void runOpMode() {
@@ -85,8 +91,9 @@ public class BallEjector extends LinearOpMode {
         backRightDrive = hardwareMap.get(DcMotor.class, "back_right");
 
         launch_motor = hardwareMap.get(DcMotor.class, "outake");
+        stage_2_servo = hardwareMap.get(Servo.class, "stage2");
 
-        launch_motor.setDirection(DcMotor.Direction.FORWARD);
+        launch_motor.setDirection(DcMotor.Direction.REVERSE);
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
@@ -97,6 +104,8 @@ public class BallEjector extends LinearOpMode {
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
+
+
         //initAprilTag();
 
         waitForStart();
@@ -104,7 +113,7 @@ public class BallEjector extends LinearOpMode {
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
-            launch_motor.setPower(1);
+            stage_2_servo.setPosition(target_servo_angle);
 
             telemetry.update();
 

@@ -29,13 +29,20 @@ package org.firstinspires.ftc.teamcode;/* Copyright (c) 2021 FIRST. All rights r
 
 
 
+import android.hardware.Sensor;
+
+import androidx.lifecycle.GenericLifecycleObserver;
+
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
@@ -81,6 +88,8 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     boolean intakeActive = false;
     boolean lastIntakeState = false;
 
+    private DistanceSensor frontDistanceSensor;
+
     private boolean hasFoundMotifTag = false;
     
     private String motifPattern = "UNKNOWN";
@@ -93,8 +102,18 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     private DcMotor backRightDrive = null;
     private DcMotor launch_motor = null;
     private DcMotor intake_motor = null;
+    private DcMotor injection_motor = null;
     private boolean lastOutakeState = false;
     private boolean outakeActive = false;
+    private boolean lastRunningState = false;
+    private boolean runningForceActive = true;
+    private boolean injectorActive = false;
+
+    private double targetLaunchSpeed = 0.7;
+
+    private double intakeSpeed = 1;
+
+    private boolean engineerSpeedTakeover = false;
 
     @Override
     public void runOpMode() {
@@ -112,9 +131,14 @@ public class DeclanIsAnOpMode extends LinearOpMode {
 
         intake_motor = hardwareMap.get(DcMotor.class, "intake");
         launch_motor = hardwareMap.get(DcMotor.class, "outake");
+        injection_motor = hardwareMap.get(DcMotor.class, "injector");
 
-        launch_motor.setDirection(DcMotor.Direction.FORWARD);
-        intake_motor.setDirection(DcMotor.Direction.FORWARD);
+        frontDistanceSensor = hardwareMap.get(DistanceSensor.class, "front_dist");
+
+        launch_motor.setDirection(DcMotor.Direction.REVERSE);
+        intake_motor.setDirection(DcMotor.Direction.REVERSE);
+        injection_motor.setDirection(DcMotorSimple.Direction.REVERSE);
+
 
         //initAprilTag();
 
@@ -138,20 +162,30 @@ public class DeclanIsAnOpMode extends LinearOpMode {
 
             TeleOp();
 
+
             /*if (hasFoundMotifTag == false){
                 telemetry.addData("AI Status", "Attempting to find motif... Elapsed: " + runtime.toString());
-                visionPortal.resumeStreaming();
-                attemptFetchMotif();
+ n                 attemptFetchMotif();
 
             }else{
                 visionPortal.stopStreaming();
             }*/
-
+            telemetry.addData("Outake Active: ", outakeActive ? "TRUE" : "FALSE");
+            telemetry.addData("Outake Running Force: ", runningForceActive ? "TRUE" : "FALSE");
+            telemetry.addData("Intake Active: ", intakeActive ? "TRUE" : "FALSE");
+            telemetry.addData("Engineer Speed Control: ", engineerSpeedTakeover ? "TRUE" : "FALSE");
+            telemetry.addData("Current Launch Speed Target: ", targetLaunchSpeed);
             telemetry.update();
 
         }
 
 
+    }
+
+    static double q_v1 = 0.000000242231;
+
+    private double GetLauncherSpeedQuadratic(double x){
+        return q_v1*(x*x)-0.00034377*x+0.719796;
     }
 
     private void TeleOp() { // Remove if using for auto
@@ -165,10 +199,15 @@ public class DeclanIsAnOpMode extends LinearOpMode {
 
         boolean bumperPressed = gamepad1.left_stick_button;
         boolean intakePressed = gamepad1.a;
-        boolean outakePressed = gamepad1.dpad_up;
+        boolean outakePressed = gamepad1.x;
+        boolean runningPressed = gamepad1.dpad_down;
         if (bumperPressed && !lastBumperState) {
             slowMode = !slowMode;
             status_led.enable(slowMode);
+        }
+
+        if (runningPressed && !lastRunningState){
+            runningForceActive=!runningForceActive;
         }
 
         if (intakePressed && !lastIntakeState){
@@ -189,6 +228,45 @@ public class DeclanIsAnOpMode extends LinearOpMode {
             launch_motor.setPower(gamepad1.left_trigger);
         }
 
+        if (gamepad1.bWasPressed()){
+
+            injectorActive = !injectorActive;
+        }
+
+        if (gamepad2.dpadLeftWasPressed()){
+            targetLaunchSpeed-=0.025;
+        }
+        if (gamepad2.dpadRightWasPressed()){
+            targetLaunchSpeed+=0.025;
+        }
+
+        if (gamepad2.aWasPressed()){
+            engineerSpeedTakeover = !engineerSpeedTakeover;
+        }
+
+        if (gamepad2.triangleWasPressed()){
+            injection_motor.setDirection(injection_motor.getDirection().inverted());
+        }
+
+        if (outakeActive){
+            if (!engineerSpeedTakeover){
+                double dist = frontDistanceSensor.getDistance(DistanceUnit.MM);
+                if (dist>1500){
+                    targetLaunchSpeed=0.7;
+                }else{
+                    targetLaunchSpeed=GetLauncherSpeedQuadratic(dist);
+                }
+            }
+
+
+        }
+
+
+        if (targetLaunchSpeed>1) {
+            targetLaunchSpeed = 1;
+        } else if (targetLaunchSpeed < 0.6) {
+            targetLaunchSpeed=0.6;
+        }
 
         lastBumperState = bumperPressed;
         lastIntakeState = intakePressed;
@@ -198,7 +276,8 @@ public class DeclanIsAnOpMode extends LinearOpMode {
         double speedMultiplier = slowMode ? 0.25 : 1.0;
 
         intake_motor.setPower(intakeActive ? 1.0 : 0.0);
-        launch_motor.setPower(outakeActive ? 1.0 : 0.0);
+        injection_motor.setPower(injectorActive ? 1.0 : 0.0);
+        launch_motor.setPower(outakeActive ? targetLaunchSpeed : (runningForceActive ? 0.25 : 0.0));
 
         double frontLeftPower  = (axial + lateral + yaw) * speedMultiplier;
         double frontRightPower = (axial - lateral - yaw) * speedMultiplier;
