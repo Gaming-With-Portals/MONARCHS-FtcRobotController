@@ -39,6 +39,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
@@ -101,8 +102,10 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     private DcMotor frontRightDrive = null;
     private DcMotor backRightDrive = null;
     private DcMotor launch_motor = null;
+
+    private DcMotor intake_a = null;
+    private DcMotor intake_b = null;
     private DcMotor intake_motor = null;
-    private DcMotor injection_motor = null;
     private boolean lastOutakeState = false;
     private boolean outakeActive = false;
     private boolean lastRunningState = false;
@@ -110,6 +113,8 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     private boolean injectorActive = false;
 
     private double targetLaunchSpeed = 0.7;
+    private boolean isRightGateOpen = false;
+    private Servo rightGateServo = null;
 
     private double intakeSpeed = 1;
 
@@ -118,11 +123,14 @@ public class DeclanIsAnOpMode extends LinearOpMode {
     @Override
     public void runOpMode() {
 
-        status_led = hardwareMap.get(LED.class, "status_led");
+
         frontLeftDrive = hardwareMap.get(DcMotor.class, "front_left");
         backLeftDrive = hardwareMap.get(DcMotor.class, "back_left");
         frontRightDrive = hardwareMap.get(DcMotor.class, "front_right");
         backRightDrive = hardwareMap.get(DcMotor.class, "back_right");
+
+        intake_a = hardwareMap.get(DcMotor.class, "i_1");
+        intake_b = hardwareMap.get(DcMotor.class, "i_2");
 
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -131,13 +139,14 @@ public class DeclanIsAnOpMode extends LinearOpMode {
 
         intake_motor = hardwareMap.get(DcMotor.class, "intake");
         launch_motor = hardwareMap.get(DcMotor.class, "outake");
-        injection_motor = hardwareMap.get(DcMotor.class, "injector");
 
-        frontDistanceSensor = hardwareMap.get(DistanceSensor.class, "front_dist");
-
-        launch_motor.setDirection(DcMotor.Direction.REVERSE);
+        launch_motor.setDirection(DcMotor.Direction.FORWARD);
         intake_motor.setDirection(DcMotor.Direction.REVERSE);
-        injection_motor.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        intake_a.setDirection(DcMotor.Direction.REVERSE);
+        intake_b.setDirection(DcMotor.Direction.REVERSE);
+
+        rightGateServo = hardwareMap.get(Servo.class, "stage2");
 
 
         //initAprilTag();
@@ -149,15 +158,18 @@ public class DeclanIsAnOpMode extends LinearOpMode {
         waitForStart();
         runtime.reset();
 
+        rightGateServo.setPosition(1);
+        // 0.3
 
         frontLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         frontRightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backRightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        status_led.off();
+
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
-
+            intake_a.setPower(1);
+            intake_b.setPower(1);
             //telemetry.addData("Motif", motifPattern);
 
             TeleOp();
@@ -203,7 +215,6 @@ public class DeclanIsAnOpMode extends LinearOpMode {
         boolean runningPressed = gamepad1.dpad_down;
         if (bumperPressed && !lastBumperState) {
             slowMode = !slowMode;
-            status_led.enable(slowMode);
         }
 
         if (runningPressed && !lastRunningState){
@@ -228,11 +239,6 @@ public class DeclanIsAnOpMode extends LinearOpMode {
             launch_motor.setPower(gamepad1.left_trigger);
         }
 
-        if (gamepad1.bWasPressed()){
-
-            injectorActive = !injectorActive;
-        }
-
         if (gamepad2.dpadLeftWasPressed()){
             targetLaunchSpeed-=0.025;
         }
@@ -244,21 +250,31 @@ public class DeclanIsAnOpMode extends LinearOpMode {
             engineerSpeedTakeover = !engineerSpeedTakeover;
         }
 
+        if (gamepad1.yWasPressed()){
+            if (isRightGateOpen){
+                rightGateServo.setPosition(1);
+                isRightGateOpen=false;
+            }else{
+                rightGateServo.setPosition(0.3);
+                isRightGateOpen=true;
+            }
+        }
+
         if (gamepad2.triangleWasPressed()){
-            injection_motor.setDirection(injection_motor.getDirection().inverted());
+
         }
 
         if (outakeActive){
-            if (!engineerSpeedTakeover){
+            /*if (!engineerSpeedTakeover){
                 double dist = frontDistanceSensor.getDistance(DistanceUnit.MM);
                 if (dist>1500){
                     targetLaunchSpeed=0.7;
                 }else{
                     targetLaunchSpeed=GetLauncherSpeedQuadratic(dist);
                 }
-            }
+            }*/
 
-
+            targetLaunchSpeed=1;
         }
 
 
@@ -276,8 +292,7 @@ public class DeclanIsAnOpMode extends LinearOpMode {
         double speedMultiplier = slowMode ? 0.25 : 1.0;
 
         intake_motor.setPower(intakeActive ? 1.0 : 0.0);
-        injection_motor.setPower(injectorActive ? 1.0 : 0.0);
-        launch_motor.setPower(outakeActive ? targetLaunchSpeed : (runningForceActive ? 0.25 : 0.0));
+        launch_motor.setPower(outakeActive ? targetLaunchSpeed : (runningForceActive ? 0.5 : 0.0));
 
         double frontLeftPower  = (axial + lateral + yaw) * speedMultiplier;
         double frontRightPower = (axial - lateral - yaw) * speedMultiplier;

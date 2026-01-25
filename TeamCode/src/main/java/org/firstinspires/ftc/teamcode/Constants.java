@@ -15,8 +15,9 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .translationalPIDFCoefficients(new PIDFCoefficients(0.1, 0, 0.01, 0.02))
-            .headingPIDFCoefficients(new PIDFCoefficients(1, 0, 0.06, 0.02))
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.15 , 0, 0.01, 0.025))
+            .headingPIDFCoefficients(new PIDFCoefficients(1, 0, 0.06, 0.02)) // TODO: Drive and Cent. PIDFs
+            .mass(8.89041)
     ;
 
     public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
@@ -38,22 +39,22 @@ public class Constants {
             ;
 
     public static TwoWheelConstants localizerConstants = new TwoWheelConstants()
-            .forwardEncoder_HardwareMapName("front_left")
-            .strafeEncoder_HardwareMapName("intake")
-            .strafeEncoderDirection(Encoder.REVERSE)
+            .forwardEncoder_HardwareMapName("front_right")
+            .strafeEncoder_HardwareMapName("back_right")
+            .strafeEncoderDirection(Encoder.FORWARD)
             .forwardEncoderDirection(Encoder.REVERSE)
             .IMU_HardwareMapName("imu")
             .IMU_Orientation(
                     new RevHubOrientationOnRobot(
-                            RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                            RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD
+                            RevHubOrientationOnRobot.LogoFacingDirection.FORWARD,
+                            RevHubOrientationOnRobot.UsbFacingDirection.LEFT
                     )
             )
             .forwardTicksToInches(0.0041784)
             .strafeTicksToInches(0.003431)
 
             .forwardPodY(6.5)
-            .strafePodX(-8)
+            .strafePodX(6.5)
             ;
 
     public static Follower createFollower(HardwareMap hardwareMap) {
